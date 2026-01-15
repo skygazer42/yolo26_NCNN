@@ -26,13 +26,14 @@ YOLO("yolo26n.pt").export(format="onnx", imgsz=640, opset=12, simplify=False, nm
 PY
 ```
 
-Convert ONNX to NCNN (onnx2ncnn from NCNN tools):
+Convert ONNX to NCNN with pnnx (recommended):
 
 ```bash
-onnx2ncnn yolo26n.onnx yolo26n.param yolo26n.bin
+python -m pip install pnnx
+pnnx yolo26n.onnx
 ```
 
-This produces `output0` with shape `1x300x6` and input name `images`.
+This produces `yolo26n.ncnn.param` and `yolo26n.ncnn.bin`, with `output0` shape `1x300x6` and input name `images`.
 
 ### Detection (raw reg/cls outputs)
 
@@ -48,7 +49,8 @@ from ultralytics import YOLO
 YOLO("yolo26n-seg.pt").export(format="onnx", imgsz=640, opset=12, simplify=False, nms=False)
 PY
 
-onnx2ncnn yolo26n-seg.onnx yolo26n-seg.param yolo26n-seg.bin
+python -m pip install pnnx
+pnnx yolo26n-seg.onnx
 ```
 
 The segmentation export uses:
@@ -59,12 +61,12 @@ The segmentation export uses:
 
 Detection:
 ```bash
-./build/yolo26_det yolo26n.param yolo26n.bin image.jpg output.jpg
+./build/yolo26_det yolo26n.ncnn.param yolo26n.ncnn.bin image.jpg output.jpg
 ```
 
 Segmentation:
 ```bash
-./build/yolo26_seg_demo yolo26n-seg.param yolo26n-seg.bin image.jpg output.jpg
+./build/yolo26_seg_demo yolo26n-seg.ncnn.param yolo26n-seg.ncnn.bin image.jpg output.jpg
 ```
 
 ## Notes

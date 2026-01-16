@@ -10,6 +10,7 @@
 
 #include "yolo26_preprocess.h"
 #include "yolo26_ops.h"
+#include "yolo26_ncnn_mat.h"
 #include "yolo26_topk.h"
 
 Yolo26::Yolo26(const Yolo26Config& config)
@@ -76,9 +77,9 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
     if (out_ret != 0)
         return false;
 
-    ncnn::Mat out_2d = out;
-    if (out.dims == 3)
-        out_2d = out.channel(0);
+    ncnn::Mat out_2d;
+    if (!yolo26::to_mat2d(out, out_2d))
+        return false;
 
     const int det_dim = 4 + config_.num_classes;
 
@@ -166,7 +167,7 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
     {
         std::vector<Yolo26Object> proposals;
         const int num_dets = out_2d.h;
-        proposals.reserve(num_dets);
+        proposals.reserve(std::min(num_dets, config_.max_det));
         for (int i = 0; i < num_dets; i++)
         {
             const float* p = out_2d.row(i);
@@ -182,6 +183,41 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
             obj.prob = score;
             obj.label = (int)p[5];
             proposals.push_back(obj);
+            if ((int)proposals.size() >= config_.max_det)
+                break;
+        }
+
+        objects.swap(proposals);
+    }
+    // Some converters may output [6, num_dets] i.e. (6, 300).
+    else if (out_2d.h == 6 && out_2d.w > 0)
+    {
+        const int num_dets = out_2d.w;
+        const float* x1_row = out_2d.row(0);
+        const float* y1_row = out_2d.row(1);
+        const float* x2_row = out_2d.row(2);
+        const float* y2_row = out_2d.row(3);
+        const float* score_row = out_2d.row(4);
+        const float* cls_row = out_2d.row(5);
+
+        std::vector<Yolo26Object> proposals;
+        proposals.reserve(std::min(num_dets, config_.max_det));
+        for (int i = 0; i < num_dets; i++)
+        {
+            const float score = score_row[i];
+            if (score < config_.conf_threshold)
+                continue;
+
+            Yolo26Object obj;
+            obj.x1 = x1_row[i];
+            obj.y1 = y1_row[i];
+            obj.x2 = x2_row[i];
+            obj.y2 = y2_row[i];
+            obj.prob = score;
+            obj.label = (int)cls_row[i];
+            proposals.push_back(obj);
+            if ((int)proposals.size() >= config_.max_det)
+                break;
         }
 
         objects.swap(proposals);

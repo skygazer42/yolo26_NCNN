@@ -73,7 +73,10 @@ int main(int argc, char** argv)
     for (const auto& obj : objects)
     {
         Yolo26Object det;
-        det.rect = obj.rect;
+        det.x1 = obj.x1;
+        det.y1 = obj.y1;
+        det.x2 = obj.x2;
+        det.y2 = obj.y2;
         det.label = obj.label;
         det.prob = obj.prob;
         det_objects.push_back(det);

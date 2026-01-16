@@ -11,6 +11,7 @@
 #include "yolo26_seg_postprocess.h"
 #include "yolo26_preprocess.h"
 #include "yolo26_ops.h"
+#include "yolo26_ncnn_mat.h"
 #include "yolo26_topk.h"
 
 Yolo26Seg::Yolo26Seg(const Yolo26SegConfig& config)
@@ -91,9 +92,9 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
     if (proto_ret != 0)
         return false;
 
-    ncnn::Mat out_2d = out;
-    if (out.dims == 3)
-        out_2d = out.channel(0);
+    ncnn::Mat out_2d;
+    if (!yolo26::to_mat2d(out, out_2d))
+        return false;
 
     std::vector<Yolo26SegObject> candidates;
 
@@ -136,10 +137,10 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
             const float h = box_h[i];
 
             Yolo26SegObject obj;
-            obj.rect.x = cx - w * 0.5f;
-            obj.rect.y = cy - h * 0.5f;
-            obj.rect.width = w;
-            obj.rect.height = h;
+            obj.x1 = cx - w * 0.5f;
+            obj.y1 = cy - h * 0.5f;
+            obj.x2 = cx + w * 0.5f;
+            obj.y2 = cy + h * 0.5f;
             obj.prob = cand.score;
             obj.label = cand.cls;
             obj.mask_feat.resize(config_.mask_dim);
@@ -170,10 +171,10 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
             const float h = p[3];
 
             Yolo26SegObject obj;
-            obj.rect.x = cx - w * 0.5f;
-            obj.rect.y = cy - h * 0.5f;
-            obj.rect.width = w;
-            obj.rect.height = h;
+            obj.x1 = cx - w * 0.5f;
+            obj.y1 = cy - h * 0.5f;
+            obj.x2 = cx + w * 0.5f;
+            obj.y2 = cy + h * 0.5f;
             obj.prob = cand.score;
             obj.label = cand.cls;
             obj.mask_feat.resize(config_.mask_dim);
@@ -187,7 +188,7 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
     else if (out_2d.w == row_stride && out_2d.h > 0)
     {
         const int num_dets = out_2d.h;
-        candidates.reserve(num_dets);
+        candidates.reserve(std::min(num_dets, config_.max_det));
         for (int i = 0; i < num_dets; i++)
         {
             const float* p = out_2d.row(i);
@@ -196,16 +197,56 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
                 continue;
 
             Yolo26SegObject obj;
-            obj.rect.x = p[0];
-            obj.rect.y = p[1];
-            obj.rect.width = p[2] - p[0];
-            obj.rect.height = p[3] - p[1];
+            obj.x1 = p[0];
+            obj.y1 = p[1];
+            obj.x2 = p[2];
+            obj.y2 = p[3];
             obj.prob = score;
             obj.label = (int)p[5];
             obj.mask_feat.resize(config_.mask_dim);
             std::copy(p + 6, p + row_stride, obj.mask_feat.begin());
 
             candidates.push_back(std::move(obj));
+            if ((int)candidates.size() >= config_.max_det)
+                break;
+        }
+    }
+    // Some converters may output [6+nm, num_dets] i.e. (38, 300).
+    else if (out_2d.h == row_stride && out_2d.w > 0)
+    {
+        const int num_dets = out_2d.w;
+        const float* x1_row = out_2d.row(0);
+        const float* y1_row = out_2d.row(1);
+        const float* x2_row = out_2d.row(2);
+        const float* y2_row = out_2d.row(3);
+        const float* score_row = out_2d.row(4);
+        const float* cls_row = out_2d.row(5);
+
+        std::vector<const float*> mask_rows(config_.mask_dim);
+        for (int m = 0; m < config_.mask_dim; m++)
+            mask_rows[m] = out_2d.row(6 + m);
+
+        candidates.reserve(std::min(num_dets, config_.max_det));
+        for (int i = 0; i < num_dets; i++)
+        {
+            const float score = score_row[i];
+            if (score < config_.conf_threshold)
+                continue;
+
+            Yolo26SegObject obj;
+            obj.x1 = x1_row[i];
+            obj.y1 = y1_row[i];
+            obj.x2 = x2_row[i];
+            obj.y2 = y2_row[i];
+            obj.prob = score;
+            obj.label = (int)cls_row[i];
+            obj.mask_feat.resize(config_.mask_dim);
+            for (int m = 0; m < config_.mask_dim; m++)
+                obj.mask_feat[m] = mask_rows[m][i];
+
+            candidates.push_back(std::move(obj));
+            if ((int)candidates.size() >= config_.max_det)
+                break;
         }
     }
     else
@@ -222,16 +263,16 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
         const Yolo26SegObject& src = candidates[i];
         Yolo26SegObject obj = src;
 
-        float x1 = obj.rect.x;
-        float y1 = obj.rect.y;
-        float x2 = obj.rect.x + obj.rect.width;
-        float y2 = obj.rect.y + obj.rect.height;
+        float x1 = obj.x1;
+        float y1 = obj.y1;
+        float x2 = obj.x2;
+        float y2 = obj.y2;
         yolo26::scale_xyxy_inplace(x1, y1, x2, y2, img_w, img_h, lb, true);
 
-        obj.rect.x = x1;
-        obj.rect.y = y1;
-        obj.rect.width = x2 - x1;
-        obj.rect.height = y2 - y1;
+        obj.x1 = x1;
+        obj.y1 = y1;
+        obj.x2 = x2;
+        obj.y2 = y2;
 
         float* mask_feat_ptr = mask_feat.row((int)i);
         std::copy(src.mask_feat.begin(), src.mask_feat.end(), mask_feat_ptr);
@@ -290,7 +331,11 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
     {
         objects[i].mask = cv::Mat::zeros(img_h, img_w, CV_32FC1);
         cv::Mat mask(img_h, img_w, CV_32FC1, (float*)mask_pred_result.channel((int)i));
-        cv::Rect roi = objects[i].rect;
+        const int rx = (int)std::floor(objects[i].x1);
+        const int ry = (int)std::floor(objects[i].y1);
+        const int rw = (int)std::ceil(objects[i].x2 - objects[i].x1);
+        const int rh = (int)std::ceil(objects[i].y2 - objects[i].y1);
+        cv::Rect roi(rx, ry, rw, rh);
         roi &= cv::Rect(0, 0, img_w, img_h);
         if (roi.area() > 0)
             mask(roi).copyTo(objects[i].mask(roi));

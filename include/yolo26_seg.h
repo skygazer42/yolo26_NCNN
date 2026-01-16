@@ -28,6 +28,10 @@ struct Yolo26SegConfig {
     float conf_threshold = 0.5f;
     int max_det = 300;
     float mask_threshold = 0.5f;
+    int padding_value = 114;
+    bool scaleup = true;
+    bool center = true;
+    bool retina_masks = false;
     bool use_gpu = false;
     std::string input_name = "in0";
     std::string output_name = "out0";

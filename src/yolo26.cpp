@@ -48,7 +48,14 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
 
     yolo26::LetterBoxInfo lb;
     ncnn::Mat in_pad;
-    if (!yolo26::letterbox(bgr, config_.input_width, config_.input_height, 114, true, true, in_pad, lb))
+    if (!yolo26::letterbox(bgr,
+                           config_.input_width,
+                           config_.input_height,
+                           config_.padding_value,
+                           config_.scaleup,
+                           config_.center,
+                           in_pad,
+                           lb))
         return false;
     yolo26::normalize_01_inplace(in_pad);
 

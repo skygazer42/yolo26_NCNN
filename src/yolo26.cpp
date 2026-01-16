@@ -95,8 +95,6 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
     if (postprocess == Yolo26PostprocessType::Auto)
         postprocess = (config_.box_format == Yolo26BoxFormat::XYXY) ? Yolo26PostprocessType::TopK : Yolo26PostprocessType::NMS;
 
-    // Ultralytics NCNN export (end2end disabled) typically outputs [4+nc, num_anchors] i.e. (84, 8400).
-    // Apply Ultralytics-style TopK postprocess (no NMS) to match YOLO26 end-to-end behavior.
     if (out_2d.h == det_dim && out_2d.w > 0)
     {
         const int num_anchors = out_2d.w;
@@ -111,41 +109,88 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
             score_rows[c] = out_2d.row(4 + c);
         }
 
-        const auto topk = yolo26::get_topk_index(
-            num_anchors, config_.num_classes, config_.max_det,
-            [&](int anchor, int cls) { return score_rows[cls][anchor]; });
-
         std::vector<Yolo26Object> proposals;
-        proposals.reserve(topk.size());
-        for (const auto& cand : topk)
+        if (postprocess == Yolo26PostprocessType::TopK)
         {
-            if (cand.score < config_.conf_threshold)
-                continue;
+            const auto topk = yolo26::get_topk_index(
+                num_anchors, config_.num_classes, config_.max_det,
+                [&](int anchor, int cls) { return score_rows[cls][anchor]; });
 
-            const int i = cand.anchor;
-            const float p0 = box_p0[i];
-            const float p1 = box_p1[i];
-            const float p2 = box_p2[i];
-            const float p3 = box_p3[i];
+            proposals.reserve(topk.size());
+            for (const auto& cand : topk)
+            {
+                if (cand.score < config_.conf_threshold)
+                    continue;
 
-            Yolo26Object obj;
-            if (config_.box_format == Yolo26BoxFormat::CXCYWH)
-            {
-                obj.x1 = p0 - p2 * 0.5f;
-                obj.y1 = p1 - p3 * 0.5f;
-                obj.x2 = p0 + p2 * 0.5f;
-                obj.y2 = p1 + p3 * 0.5f;
+                const int i = cand.anchor;
+                const float p0 = box_p0[i];
+                const float p1 = box_p1[i];
+                const float p2 = box_p2[i];
+                const float p3 = box_p3[i];
+
+                Yolo26Object obj;
+                if (config_.box_format == Yolo26BoxFormat::CXCYWH)
+                {
+                    obj.x1 = p0 - p2 * 0.5f;
+                    obj.y1 = p1 - p3 * 0.5f;
+                    obj.x2 = p0 + p2 * 0.5f;
+                    obj.y2 = p1 + p3 * 0.5f;
+                }
+                else
+                {
+                    obj.x1 = p0;
+                    obj.y1 = p1;
+                    obj.x2 = p2;
+                    obj.y2 = p3;
+                }
+                obj.prob = cand.score;
+                obj.label = cand.cls;
+                proposals.push_back(obj);
             }
-            else
+        }
+        else
+        {
+            proposals.reserve((size_t)num_anchors);
+            for (int i = 0; i < num_anchors; i++)
             {
-                obj.x1 = p0;
-                obj.y1 = p1;
-                obj.x2 = p2;
-                obj.y2 = p3;
+                float best = score_rows[0][i];
+                int best_cls = 0;
+                for (int c = 1; c < config_.num_classes; c++)
+                {
+                    const float s = score_rows[c][i];
+                    if (s > best)
+                    {
+                        best = s;
+                        best_cls = c;
+                    }
+                }
+                if (best < config_.conf_threshold)
+                    continue;
+
+                const float p0 = box_p0[i];
+                const float p1 = box_p1[i];
+                const float p2 = box_p2[i];
+                const float p3 = box_p3[i];
+
+                Yolo26Object obj;
+                if (config_.box_format == Yolo26BoxFormat::CXCYWH)
+                {
+                    obj.x1 = p0 - p2 * 0.5f;
+                    obj.y1 = p1 - p3 * 0.5f;
+                    obj.x2 = p0 + p2 * 0.5f;
+                    obj.y2 = p1 + p3 * 0.5f;
+                }
+                else
+                {
+                    obj.x1 = p0;
+                    obj.y1 = p1;
+                    obj.x2 = p2;
+                    obj.y2 = p3;
+                }
+                obj.prob = best;
+                obj.label = best_cls;
+                proposals.push_back(obj);
             }
-            obj.prob = cand.score;
-            obj.label = cand.cls;
-            proposals.push_back(obj);
         }
 
         objects.swap(proposals);
@@ -155,41 +200,90 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
     {
         const int num_anchors = out_2d.h;
 
-        const auto topk = yolo26::get_topk_index(
-            num_anchors, config_.num_classes, config_.max_det,
-            [&](int anchor, int cls) { return out_2d.row(anchor)[4 + cls]; });
-
         std::vector<Yolo26Object> proposals;
-        proposals.reserve(topk.size());
-        for (const auto& cand : topk)
+        if (postprocess == Yolo26PostprocessType::TopK)
         {
-            if (cand.score < config_.conf_threshold)
-                continue;
+            const auto topk = yolo26::get_topk_index(
+                num_anchors, config_.num_classes, config_.max_det,
+                [&](int anchor, int cls) { return out_2d.row(anchor)[4 + cls]; });
 
-            const float* p = out_2d.row(cand.anchor);
-            const float p0 = p[0];
-            const float p1 = p[1];
-            const float p2 = p[2];
-            const float p3 = p[3];
+            proposals.reserve(topk.size());
+            for (const auto& cand : topk)
+            {
+                if (cand.score < config_.conf_threshold)
+                    continue;
 
-            Yolo26Object obj;
-            if (config_.box_format == Yolo26BoxFormat::CXCYWH)
-            {
-                obj.x1 = p0 - p2 * 0.5f;
-                obj.y1 = p1 - p3 * 0.5f;
-                obj.x2 = p0 + p2 * 0.5f;
-                obj.y2 = p1 + p3 * 0.5f;
+                const float* p = out_2d.row(cand.anchor);
+                const float p0 = p[0];
+                const float p1 = p[1];
+                const float p2 = p[2];
+                const float p3 = p[3];
+
+                Yolo26Object obj;
+                if (config_.box_format == Yolo26BoxFormat::CXCYWH)
+                {
+                    obj.x1 = p0 - p2 * 0.5f;
+                    obj.y1 = p1 - p3 * 0.5f;
+                    obj.x2 = p0 + p2 * 0.5f;
+                    obj.y2 = p1 + p3 * 0.5f;
+                }
+                else
+                {
+                    obj.x1 = p0;
+                    obj.y1 = p1;
+                    obj.x2 = p2;
+                    obj.y2 = p3;
+                }
+                obj.prob = cand.score;
+                obj.label = cand.cls;
+                proposals.push_back(obj);
             }
-            else
+        }
+        else
+        {
+            proposals.reserve((size_t)num_anchors);
+            for (int i = 0; i < num_anchors; i++)
             {
-                obj.x1 = p0;
-                obj.y1 = p1;
-                obj.x2 = p2;
-                obj.y2 = p3;
+                const float* p = out_2d.row(i);
+
+                float best = p[4];
+                int best_cls = 0;
+                for (int c = 1; c < config_.num_classes; c++)
+                {
+                    const float s = p[4 + c];
+                    if (s > best)
+                    {
+                        best = s;
+                        best_cls = c;
+                    }
+                }
+                if (best < config_.conf_threshold)
+                    continue;
+
+                const float p0 = p[0];
+                const float p1 = p[1];
+                const float p2 = p[2];
+                const float p3 = p[3];
+
+                Yolo26Object obj;
+                if (config_.box_format == Yolo26BoxFormat::CXCYWH)
+                {
+                    obj.x1 = p0 - p2 * 0.5f;
+                    obj.y1 = p1 - p3 * 0.5f;
+                    obj.x2 = p0 + p2 * 0.5f;
+                    obj.y2 = p1 + p3 * 0.5f;
+                }
+                else
+                {
+                    obj.x1 = p0;
+                    obj.y1 = p1;
+                    obj.x2 = p2;
+                    obj.y2 = p3;
+                }
+                obj.prob = best;
+                obj.label = best_cls;
+                proposals.push_back(obj);
             }
-            obj.prob = cand.score;
-            obj.label = cand.cls;
-            proposals.push_back(obj);
         }
 
         objects.swap(proposals);
@@ -259,6 +353,13 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
         return false;
     }
 
+    if (!is_end2end_out && postprocess == Yolo26PostprocessType::NMS)
+    {
+        objects = yolo26::nms(objects, config_.iou_threshold, config_.agnostic_nms);
+        if ((int)objects.size() > config_.max_det)
+            objects.resize((size_t)config_.max_det);
+    }
+
     for (auto& obj : objects)
     {
         float x1 = obj.x1;
@@ -272,9 +373,6 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
         obj.x2 = x2;
         obj.y2 = y2;
     }
-
-    if (!is_end2end_out && postprocess == Yolo26PostprocessType::NMS)
-        objects = yolo26::nms(objects, config_.iou_threshold, config_.agnostic_nms);
 
     return true;
 }

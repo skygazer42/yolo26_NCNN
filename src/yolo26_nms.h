@@ -33,8 +33,8 @@ inline std::vector<Object> nms(const std::vector<Object>& objects, float iou_thr
         return objects;
 
     std::vector<Object> sorted_objs = objects;
-    std::sort(sorted_objs.begin(), sorted_objs.end(),
-              [](const Object& a, const Object& b) { return a.prob > b.prob; });
+    std::stable_sort(sorted_objs.begin(), sorted_objs.end(),
+                     [](const Object& a, const Object& b) { return a.prob > b.prob; });
 
     std::vector<bool> suppressed(sorted_objs.size(), false);
     std::vector<Object> result;

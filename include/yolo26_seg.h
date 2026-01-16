@@ -28,6 +28,7 @@ struct Yolo26SegConfig {
     int input_height = 640;
     int num_classes = 80;
     float conf_threshold = 0.5f;
+    float iou_threshold = 0.45f;
     int max_det = 300;
     float mask_threshold = 0.5f;
     int padding_value = 114;
@@ -35,6 +36,7 @@ struct Yolo26SegConfig {
     bool center = true;
     Yolo26BoxFormat box_format = Yolo26BoxFormat::CXCYWH;
     Yolo26PostprocessType postprocess = Yolo26PostprocessType::Auto;
+    bool agnostic_nms = false;
     bool retina_masks = false;
     bool use_gpu = false;
     std::string input_name = "in0";

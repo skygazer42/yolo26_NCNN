@@ -3,6 +3,9 @@
 NCNN C++ demo for Ultralytics YOLO26 detection and segmentation, based on the YOLO26 output layouts and NCNN usage
 patterns from the referenced repos.
 
+Docs:
+- `docs/DEPLOYMENT.md`
+
 ## Build
 
 Prerequisites:

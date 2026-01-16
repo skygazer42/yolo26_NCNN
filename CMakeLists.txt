@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(YOLO26_BUILD_SEG "Build YOLO26 segmentation demo" ON)
+option(YOLO26_BUILD_TOOLS "Build helper tools" ON)
 
 find_package(ncnn REQUIRED)
 find_package(OpenCV REQUIRED)
@@ -33,12 +34,10 @@ target_link_libraries(yolo26_det yolo26)
 if(YOLO26_BUILD_SEG)
     add_library(yolo26_seg
         src/yolo26_seg.cpp
-        src/yolo26_seg_postprocess.cpp
     )
     target_include_directories(yolo26_seg
         PUBLIC
             ${CMAKE_CURRENT_SOURCE_DIR}/include
-            ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
     target_link_libraries(yolo26_seg
         PUBLIC
@@ -47,4 +46,13 @@ if(YOLO26_BUILD_SEG)
 
     add_executable(yolo26_seg_demo src/yolo26_seg_demo.cpp)
     target_link_libraries(yolo26_seg_demo yolo26_seg)
+endif()
+
+if(YOLO26_BUILD_TOOLS)
+    add_executable(yolo26_topk_parity tools/topk_parity.cpp)
+    target_include_directories(yolo26_topk_parity PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+    add_executable(yolo26_mask_parity tools/mask_parity.cpp)
+    target_include_directories(yolo26_mask_parity PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(yolo26_mask_parity PRIVATE ncnn ${OpenCV_LIBS})
 endif()

@@ -15,6 +15,8 @@ cmake -S . -B build
 cmake --build build -j
 ```
 
+If `find_package(ncnn)` fails, pass `-Dncnn_DIR=<path>/lib/cmake/ncnn` (e.g. `-Dncnn_DIR=/data/temp40/ncnn/install/lib/cmake/ncnn`).
+
 ## Model export
 
 ### Detection (Ultralytics NCNN export)
@@ -57,6 +59,7 @@ Segmentation:
 ## Notes
 
 - YOLO26 is end-to-end NMS-free; Ultralytics NCNN export disables the end2end branch (TopK unsupported in NCNN), so this demo runs the same TopK selection in C++ (no NMS).
+- Preprocess matches Ultralytics `LetterBox`: RGB input, padding value `114`, `/255` normalization.
 - Input blob name defaults to `in0`; the code also tries `images` and `data`.
 - Output blob names default to `out0` (and `out1` for segmentation); the code also tries `output0`/`output1`.
 - If your model uses different blob names, update the config in code before calling `load()`.

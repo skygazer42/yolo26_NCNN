@@ -299,7 +299,7 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
     if (proto_chw.dims != 3 || proto_chw.c != config_.mask_dim)
         return false;
 
-    const bool retina_masks = false;  // TODO: expose as config flag
+    const bool retina_masks = config_.retina_masks;
 
     if (retina_masks)
     {

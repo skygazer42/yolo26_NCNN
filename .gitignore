@@ -1,5 +1,7 @@
 build/
 build-*/
+build_*/
+build_test/
 .idea/
 .vscode/
 *.o

@@ -111,7 +111,8 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
     if (postprocess == Yolo26PostprocessType::Auto)
         postprocess = (config_.box_format == Yolo26BoxFormat::XYXY) ? Yolo26PostprocessType::TopK : Yolo26PostprocessType::NMS;
 
-    // Ultralytics NCNN export (end2end disabled) typically outputs [4+nc+nm, num_anchors] i.e. (116, 8400).
+    // Raw predictions layout: [4+nc+nm, num_anchors] i.e. (116, 8400).
+    // Box format depends on export: one2many exports typically use CXCYWH, end2end-raw exports use XYXY.
     if (out_2d.h == det_mask_dim && out_2d.w > 0)
     {
         const int num_anchors = out_2d.w;

@@ -13,10 +13,23 @@ def main():
     build_dir = (root / args.build_dir).resolve()
 
     topk_bin = build_dir / "yolo26_topk_parity"
+    nms_bin = build_dir / "yolo26_nms_parity"
     mask_bin = build_dir / "yolo26_mask_parity"
 
     subprocess.check_call(
         ["python", str(root / "tools/test_topk_parity.py"), "--bin", str(topk_bin), "--seeds", *map(str, args.seeds)]
+    )
+    subprocess.check_call(
+        [
+            "python",
+            str(root / "tools/test_nms_parity.py"),
+            "--bin",
+            str(nms_bin),
+            "--anchors",
+            "2048",
+            "--seeds",
+            *map(str, args.seeds),
+        ]
     )
     subprocess.check_call(
         ["python", str(root / "tools/test_mask_parity.py"), "--bin", str(mask_bin), "--seeds", *map(str, args.seeds)]
@@ -25,4 +38,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

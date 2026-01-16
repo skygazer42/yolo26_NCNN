@@ -52,6 +52,9 @@ if(YOLO26_BUILD_TOOLS)
     add_executable(yolo26_topk_parity tools/topk_parity.cpp)
     target_include_directories(yolo26_topk_parity PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+    add_executable(yolo26_nms_parity tools/nms_parity.cpp)
+    target_include_directories(yolo26_nms_parity PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
     add_executable(yolo26_mask_parity tools/mask_parity.cpp)
     target_include_directories(yolo26_mask_parity PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(yolo26_mask_parity PRIVATE ncnn ${OpenCV_LIBS})

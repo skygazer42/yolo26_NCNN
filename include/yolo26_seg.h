@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "yolo26_types.h"
+
 namespace ncnn {
 class Net;
 }
@@ -31,6 +33,8 @@ struct Yolo26SegConfig {
     int padding_value = 114;
     bool scaleup = true;
     bool center = true;
+    Yolo26BoxFormat box_format = Yolo26BoxFormat::CXCYWH;
+    Yolo26PostprocessType postprocess = Yolo26PostprocessType::Auto;
     bool retina_masks = false;
     bool use_gpu = false;
     std::string input_name = "in0";

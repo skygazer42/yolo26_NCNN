@@ -90,16 +90,20 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
         return false;
 
     const int det_dim = 4 + config_.num_classes;
+    const bool is_end2end_out = (out_2d.w == 6 && out_2d.h > 0) || (out_2d.h == 6 && out_2d.w > 0);
+    Yolo26PostprocessType postprocess = config_.postprocess;
+    if (postprocess == Yolo26PostprocessType::Auto)
+        postprocess = (config_.box_format == Yolo26BoxFormat::XYXY) ? Yolo26PostprocessType::TopK : Yolo26PostprocessType::NMS;
 
     // Ultralytics NCNN export (end2end disabled) typically outputs [4+nc, num_anchors] i.e. (84, 8400).
     // Apply Ultralytics-style TopK postprocess (no NMS) to match YOLO26 end-to-end behavior.
     if (out_2d.h == det_dim && out_2d.w > 0)
     {
         const int num_anchors = out_2d.w;
-        const float* box_cx = out_2d.row(0);
-        const float* box_cy = out_2d.row(1);
-        const float* box_w = out_2d.row(2);
-        const float* box_h = out_2d.row(3);
+        const float* box_p0 = out_2d.row(0);
+        const float* box_p1 = out_2d.row(1);
+        const float* box_p2 = out_2d.row(2);
+        const float* box_p3 = out_2d.row(3);
 
         std::vector<const float*> score_rows(config_.num_classes);
         for (int c = 0; c < config_.num_classes; c++)
@@ -119,16 +123,26 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
                 continue;
 
             const int i = cand.anchor;
-            const float cx = box_cx[i];
-            const float cy = box_cy[i];
-            const float w = box_w[i];
-            const float h = box_h[i];
+            const float p0 = box_p0[i];
+            const float p1 = box_p1[i];
+            const float p2 = box_p2[i];
+            const float p3 = box_p3[i];
 
             Yolo26Object obj;
-            obj.x1 = cx - w * 0.5f;
-            obj.y1 = cy - h * 0.5f;
-            obj.x2 = cx + w * 0.5f;
-            obj.y2 = cy + h * 0.5f;
+            if (config_.box_format == Yolo26BoxFormat::CXCYWH)
+            {
+                obj.x1 = p0 - p2 * 0.5f;
+                obj.y1 = p1 - p3 * 0.5f;
+                obj.x2 = p0 + p2 * 0.5f;
+                obj.y2 = p1 + p3 * 0.5f;
+            }
+            else
+            {
+                obj.x1 = p0;
+                obj.y1 = p1;
+                obj.x2 = p2;
+                obj.y2 = p3;
+            }
             obj.prob = cand.score;
             obj.label = cand.cls;
             proposals.push_back(obj);
@@ -153,16 +167,26 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
                 continue;
 
             const float* p = out_2d.row(cand.anchor);
-            const float cx = p[0];
-            const float cy = p[1];
-            const float w = p[2];
-            const float h = p[3];
+            const float p0 = p[0];
+            const float p1 = p[1];
+            const float p2 = p[2];
+            const float p3 = p[3];
 
             Yolo26Object obj;
-            obj.x1 = cx - w * 0.5f;
-            obj.y1 = cy - h * 0.5f;
-            obj.x2 = cx + w * 0.5f;
-            obj.y2 = cy + h * 0.5f;
+            if (config_.box_format == Yolo26BoxFormat::CXCYWH)
+            {
+                obj.x1 = p0 - p2 * 0.5f;
+                obj.y1 = p1 - p3 * 0.5f;
+                obj.x2 = p0 + p2 * 0.5f;
+                obj.y2 = p1 + p3 * 0.5f;
+            }
+            else
+            {
+                obj.x1 = p0;
+                obj.y1 = p1;
+                obj.x2 = p2;
+                obj.y2 = p3;
+            }
             obj.prob = cand.score;
             obj.label = cand.cls;
             proposals.push_back(obj);
@@ -249,8 +273,8 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
         obj.y2 = y2;
     }
 
-    // Apply NMS to remove duplicate detections
-    objects = yolo26::nms(objects, config_.iou_threshold, config_.agnostic_nms);
+    if (!is_end2end_out && postprocess == Yolo26PostprocessType::NMS)
+        objects = yolo26::nms(objects, config_.iou_threshold, config_.agnostic_nms);
 
     return true;
 }

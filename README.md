@@ -1,12 +1,12 @@
 # yolo26_ncnn
 
-NCNN C++ demo for Ultralytics YOLO26 detection and segmentation, based on the YOLO26 output layouts and NCNN usage
-patterns from the referenced repos.
+Ultralytics YOLO26 detection/segmentation demo in **C++ + NCNN**.
 
-Docs:
-- `docs/DEPLOYMENT.md`
+- 中文部署/对齐说明：`docs/DEPLOYMENT.md`
 
-## Build
+## Quickstart
+
+### Build
 
 Prerequisites:
 - CMake 3.10+
@@ -14,17 +14,37 @@ Prerequisites:
 - NCNN
 
 ```bash
-cmake -S . -B build
+cmake -S . -B build -Dncnn_DIR=/data/temp40/ncnn/install/lib/cmake/ncnn
 cmake --build build -j
 ```
 
-If `find_package(ncnn)` fails, pass `-Dncnn_DIR=<path>/lib/cmake/ncnn` (e.g. `-Dncnn_DIR=/data/temp40/ncnn/install/lib/cmake/ncnn`).
+If `find_package(ncnn)` fails, pass `-Dncnn_DIR=<path>/lib/cmake/ncnn`.
+
+### Choose postprocess mode (important)
+
+This repo supports **two aligned pipelines**:
+
+- **Mode A (recommended for “official NCNN export alignment”)**: one2many output from `YOLO(...).export(format="ncnn")` + **C++ NMS**
+  - Typical output: detect `84x8400`, seg `116x8400`
+  - Box format: `cxcywh`
+  - Run with: `--post=nms --box=cxcywh`
+- **Mode B (recommended for “YOLO26 end2end / NMS-free semantics”)**: end2end(one2one) **RAW** export (no `torch.topk` in graph) + **C++ TopK**
+  - Box format: `xyxy`
+  - Run with: `--post=topk --box=xyxy` (no NMS)
+
+`--post=auto` picks `nms` for `--box=cxcywh`, and `topk` for `--box=xyxy` (be explicit if you’re debugging).
 
 ## Model export
 
+Python export prerequisites:
+- `ultralytics` (YOLO26 support) + `torch`
+- `pnnx` Python module (comes with NCNN builds)
+
+The end2end RAW export scripts will prefer a local Ultralytics checkout at `/data/temp40/ultralytics` (for strict alignment) if it exists.
+
 ### Detection
 
-#### A) Official Ultralytics NCNN export (one2many, needs NMS)
+#### Mode A: official Ultralytics NCNN export (one2many)
 
 ```bash
 python - <<'PY'
@@ -33,18 +53,14 @@ YOLO("yolo26n.pt").export(format="ncnn", imgsz=640, device="cpu")
 PY
 ```
 
-This creates `yolo26n_ncnn_model/` containing `model.ncnn.param` and `model.ncnn.bin`.
-The model output `out0` shape is typically `84x8400`: `[cx, cy, w, h] + 80 class scores` (one2many output, requires NMS).
-
 Run:
 ```bash
 ./build/yolo26_det yolo26n_ncnn_model/model.ncnn.param yolo26n_ncnn_model/model.ncnn.bin image.jpg out.jpg --post=nms --box=cxcywh
 ```
 
-#### B) YOLO26 end2end-style export for NCNN (one2one RAW, NMS-free)
+#### Mode B: end2end(one2one) RAW export for NCNN (NMS-free)
 
-Ultralytics disables end2end TopK for NCNN export. To keep the end2end one2one head while removing the `torch.topk`
-from the graph, export a "raw" end2end model and run TopK in C++:
+Ultralytics disables end2end `torch.topk` for NCNN export. These scripts keep the one2one head but remove TopK from the graph, so you can run TopK in C++:
 
 ```bash
 python python/export_yolo26_det_end2end_raw_ncnn.py --weights yolo26n.pt --imgsz 640
@@ -57,7 +73,7 @@ Run:
 
 ### Segmentation
 
-#### A) Official Ultralytics NCNN export (one2many, needs NMS)
+#### Mode A: official Ultralytics NCNN export (one2many)
 
 ```bash
 python - <<'PY'
@@ -66,16 +82,12 @@ YOLO("yolo26n-seg.pt").export(format="ncnn", imgsz=640, device="cpu")
 PY
 ```
 
-The segmentation export uses:
-- `out0` shape `116x8400` ([cx, cy, w, h] + 80 class scores + 32 mask coeffs, one2many output, requires NMS)
-- `out1` shape `32x160x160` (mask prototypes)
-
 Run:
 ```bash
 ./build/yolo26_seg_demo yolo26n-seg_ncnn_model/model.ncnn.param yolo26n-seg_ncnn_model/model.ncnn.bin image.jpg out.jpg --post=nms --box=cxcywh
 ```
 
-#### B) YOLO26 end2end-style export for NCNN (one2one RAW, NMS-free)
+#### Mode B: end2end(one2one) RAW export for NCNN (NMS-free)
 
 ```bash
 python python/export_yolo26_seg_end2end_raw_ncnn.py --weights yolo26n-seg.pt --imgsz 640
@@ -86,22 +98,44 @@ Run:
 ./build/yolo26_seg_demo yolo26n-seg_ncnn_e2e_raw_model/model.ncnn.param yolo26n-seg_ncnn_e2e_raw_model/model.ncnn.bin image.jpg out.jpg --post=topk --box=xyxy
 ```
 
-## Run
+## CLI options
 
-Detection:
-```bash
-./build/yolo26_det yolo26n_ncnn_model/model.ncnn.param yolo26n_ncnn_model/model.ncnn.bin image.jpg output.jpg
-```
+Usage:
+- `./build/yolo26_det <param> <bin> <image> [output] [options]` (default output: `yolo26_result.jpg`)
+- `./build/yolo26_seg_demo <param> <bin> <image> [output] [options]` (default output: `yolo26_seg_result.jpg`)
 
-Segmentation:
+`yolo26_det`:
+- `--conf <float>` (default `0.25`)
+- `--iou <float>` (NMS IoU, default `0.45`)
+- `--max-det <int>` (default `300`)
+- `--post <auto|nms|topk>` (default `auto`)
+- `--box <cxcywh|xyxy>` (default `cxcywh`)
+- `--agnostic` (class-agnostic NMS)
+- `--gpu` (Vulkan, if NCNN built with it)
+
+`yolo26_seg_demo` (same flags, different defaults):
+- `--conf <float>` (default `0.5`)
+- `--iou <float>` (NMS IoU, default `0.45`)
+- `--max-det <int>` (default `300`)
+- `--post <auto|nms|topk>` (default `auto`)
+- `--box <cxcywh|xyxy>` (default `cxcywh`)
+- `--agnostic` (class-agnostic NMS)
+- `--retina` (retina masks path)
+- `--gpu` (Vulkan, if NCNN built with it)
+
+## Troubleshooting
+
+- **Lots of duplicate boxes**: you are likely running one2many outputs (Mode A) with `--post=topk`. Use `--post=nms --box=cxcywh` for official exports.
+- **Too many “garbage boxes” with TopK**: ensure you’re using Mode B (end2end RAW) and `--box=xyxy`; then raise `--conf` (e.g. `0.4/0.5`) or reduce `--max-det` (e.g. `100`). If you only want cleaner visualization, use Mode A (NMS).
+- **Blob names mismatch**: input defaults to `in0` (also tries `images`/`data`), output defaults to `out0`/`out1` (also tries `output0`/`output1`). If your model uses different names, update config in code before `load()`.
+
+## Parity checks (optional)
+
+This repo includes small TopK/NMS/mask parity tests:
 ```bash
-./build/yolo26_seg_demo yolo26n-seg_ncnn_model/model.ncnn.param yolo26n-seg_ncnn_model/model.ncnn.bin image.jpg output.jpg
+python tools/run_parity.py --build-dir build
 ```
 
 ## Notes
 
-- YOLO26 end2end is NMS-free only when using the one2one head + TopK. Ultralytics disables end2end TopK for NCNN export, so official NCNN export outputs one2many predictions that require NMS.
 - Preprocess matches Ultralytics `LetterBox`: RGB input, padding value `114`, `/255` normalization.
-- Input blob name defaults to `in0`; the code also tries `images` and `data`.
-- Output blob names default to `out0` (and `out1` for segmentation); the code also tries `output0`/`output1`.
-- If your model uses different blob names, update the config in code before calling `load()`.

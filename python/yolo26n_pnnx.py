@@ -4,11 +4,8 @@ import tempfile, zipfile
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-try:
-    import torchvision
-    import torchaudio
-except:
-    pass
+import torchvision
+import torchaudio
 
 class Model(nn.Module):
     def __init__(self):

@@ -82,7 +82,9 @@ def main():
         pnnxonnx=(out_dir / "model.pnnx.onnx").as_posix(),
     )
 
-    pnnx.export(model, inputs=im, **ncnn_args, **pnnx_args, fp16=args.half, device="cpu")
+    # Some Ultralytics models can fail torch.jit trace check (graphs differ across invocations) even though the trace is
+    # valid. Disable check_trace to make export robust.
+    pnnx.export(model, inputs=im, **ncnn_args, **pnnx_args, fp16=args.half, device="cpu", check_trace=False)
 
     print(f"Saved: {out_dir}")
     print("Note: output is end2end one2one RAW (boxes are XYXY, no TopK in graph).")
@@ -91,4 +93,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

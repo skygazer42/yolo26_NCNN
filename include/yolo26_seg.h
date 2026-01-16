@@ -23,12 +23,12 @@ struct Yolo26SegConfig {
     int input_height = 640;
     int num_classes = 80;
     float conf_threshold = 0.5f;
-    float nms_threshold = 0.45f;
+    int max_det = 300;
     float mask_threshold = 0.5f;
     bool use_gpu = false;
-    std::string input_name = "images";
-    std::string output_name = "output0";
-    std::string proto_name = "output1";
+    std::string input_name = "in0";
+    std::string output_name = "out0";
+    std::string proto_name = "out1";
     int mask_dim = 32;
 };
 

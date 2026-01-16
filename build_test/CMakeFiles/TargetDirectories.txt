@@ -1,0 +1,6 @@
+/data/temp40/yolo26_NCNN/build_test/CMakeFiles/yolo26.dir
+/data/temp40/yolo26_NCNN/build_test/CMakeFiles/yolo26_det.dir
+/data/temp40/yolo26_NCNN/build_test/CMakeFiles/yolo26_seg.dir
+/data/temp40/yolo26_NCNN/build_test/CMakeFiles/yolo26_seg_demo.dir
+/data/temp40/yolo26_NCNN/build_test/CMakeFiles/edit_cache.dir
+/data/temp40/yolo26_NCNN/build_test/CMakeFiles/rebuild_cache.dir

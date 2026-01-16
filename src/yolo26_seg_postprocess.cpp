@@ -1,6 +1,6 @@
 #include "yolo26_seg_postprocess.h"
 
-#include "ncnn/layer.h"
+#include "layer.h"
 
 namespace yolo26_seg {
 

@@ -1,0 +1,2 @@
+/usr/bin/ar qc libyolo26.a CMakeFiles/yolo26.dir/src/yolo26.cpp.o CMakeFiles/yolo26.dir/src/yolo26_draw.cpp.o
+/usr/bin/ranlib libyolo26.a

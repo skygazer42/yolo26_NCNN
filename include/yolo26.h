@@ -21,13 +21,10 @@ struct Yolo26Config {
     int input_height = 640;
     int num_classes = 80;
     float conf_threshold = 0.5f;
-    float nms_threshold = 0.45f;
-    std::vector<int> strides = {8, 16, 32};
+    int max_det = 300;
     bool use_gpu = false;
-    std::string input_name = "data";
-    std::vector<std::string> reg_blob_names = {"reg1", "reg2", "reg3"};
-    std::vector<std::string> cls_blob_names = {"cls1", "cls2", "cls3"};
-    std::string output_name = "output0";
+    std::string input_name = "in0";
+    std::string output_name = "out0";
 };
 
 class Yolo26 {

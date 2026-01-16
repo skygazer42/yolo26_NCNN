@@ -36,6 +36,7 @@ struct Yolo26SegConfig {
     bool center = true;
     Yolo26BoxFormat box_format = Yolo26BoxFormat::CXCYWH;
     Yolo26PostprocessType postprocess = Yolo26PostprocessType::Auto;
+    bool topk_dedup = false;
     bool agnostic_nms = false;
     bool retina_masks = false;
     bool use_gpu = false;

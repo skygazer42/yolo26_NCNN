@@ -33,6 +33,7 @@ struct Yolo26Config {
     bool center = true;
     Yolo26BoxFormat box_format = Yolo26BoxFormat::CXCYWH;
     Yolo26PostprocessType postprocess = Yolo26PostprocessType::Auto;
+    bool topk_dedup = false;
     bool agnostic_nms = false;
     bool use_gpu = false;
     std::string input_name = "in0";

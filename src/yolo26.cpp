@@ -360,6 +360,13 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
             objects.resize((size_t)config_.max_det);
     }
 
+    if (postprocess == Yolo26PostprocessType::TopK && config_.topk_dedup)
+    {
+        objects = yolo26::nms(objects, config_.iou_threshold, config_.agnostic_nms);
+        if ((int)objects.size() > config_.max_det)
+            objects.resize((size_t)config_.max_det);
+    }
+
     for (auto& obj : objects)
     {
         float x1 = obj.x1;

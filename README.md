@@ -110,6 +110,7 @@ Usage:
 - `--max-det <int>` (default `300`)
 - `--post <auto|nms|topk>` (default `auto`)
 - `--box <cxcywh|xyxy>` (default `cxcywh`)
+- `--dedup` (apply IoU de-dup after TopK, uses `--iou`)
 - `--agnostic` (class-agnostic NMS)
 - `--gpu` (Vulkan, if NCNN built with it)
 
@@ -119,6 +120,7 @@ Usage:
 - `--max-det <int>` (default `300`)
 - `--post <auto|nms|topk>` (default `auto`)
 - `--box <cxcywh|xyxy>` (default `cxcywh`)
+- `--dedup` (apply IoU de-dup after TopK, uses `--iou`)
 - `--agnostic` (class-agnostic NMS)
 - `--retina` (retina masks path)
 - `--gpu` (Vulkan, if NCNN built with it)
@@ -127,6 +129,7 @@ Usage:
 
 - **Lots of duplicate boxes**: you are likely running one2many outputs (Mode A) with `--post=topk`. Use `--post=nms --box=cxcywh` for official exports.
 - **Too many “garbage boxes” with TopK**: ensure you’re using Mode B (end2end RAW) and `--box=xyxy`; then raise `--conf` (e.g. `0.4/0.5`) or reduce `--max-det` (e.g. `100`). If you only want cleaner visualization, use Mode A (NMS).
+- **Want TopK but cleaner boxes**: add `--dedup` (runs a fast IoU de-dup after TopK on at most `--max-det` boxes).
 - **Blob names mismatch**: input defaults to `in0` (also tries `images`/`data`), output defaults to `out0`/`out1` (also tries `output0`/`output1`). If your model uses different names, update config in code before `load()`.
 
 ## Parity checks (optional)

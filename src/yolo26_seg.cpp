@@ -395,6 +395,13 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
             candidates.resize((size_t)config_.max_det);
     }
 
+    if (postprocess == Yolo26PostprocessType::TopK && config_.topk_dedup)
+    {
+        candidates = yolo26::nms(candidates, config_.iou_threshold, config_.agnostic_nms);
+        if ((int)candidates.size() > config_.max_det)
+            candidates.resize((size_t)config_.max_det);
+    }
+
     objects.clear();
     if (candidates.empty())
         return true;

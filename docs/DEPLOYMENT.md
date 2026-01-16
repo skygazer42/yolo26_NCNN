@@ -131,6 +131,9 @@ TopK-only 不做重叠抑制，因此视觉上经常会比 NMS “更乱”。�
 3) **阈值偏低**（TopK 会把全图最高分的候选都拉进来）  
    - 建议：提高 `--conf`（例如 0.4/0.5），或减小 `--max-det`（例如 100）
 
+4) **想保留 TopK 但视觉更“干净”**  
+   - 可加 `--dedup`：TopK 之后对最多 `--max-det` 个候选做一次 IoU 去重（使用 `--iou` 阈值）。
+
 如果你只追求“更干净的可视化”，不严格要求 end2end 语义，也可以直接使用 NMS 方案（A）。
 
 ---
@@ -141,4 +144,3 @@ TopK-only 不做重叠抑制，因此视觉上经常会比 NMS “更乱”。�
 ```bash
 python tools/run_parity.py --build-dir build
 ```
-

@@ -45,6 +45,7 @@ static void print_usage(const char* prog)
                  "  --max-det <int>          Max detections\n"
                  "  --post <auto|nms|topk>    Postprocess mode\n"
                  "  --box <cxcywh|xyxy>       Box format for raw outputs\n"
+                 "  --dedup                  Apply IoU de-dup after TopK\n"
                  "  --agnostic               Class-agnostic NMS\n"
                  "  --retina                 Use retina masks path\n"
                  "  --gpu                    Enable Vulkan (if available)\n",
@@ -104,6 +105,10 @@ int main(int argc, char** argv)
         if (arg == "--agnostic")
         {
             config.agnostic_nms = true;
+        }
+        else if (arg == "--dedup")
+        {
+            config.topk_dedup = true;
         }
         else if (arg == "--retina")
         {

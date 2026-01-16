@@ -3,6 +3,7 @@
 Ultralytics YOLO26 推理示例（C++ + NCNN），支持 detection / segmentation。
 
 - 部署/导出/运行：`docs/DEPLOYMENT.md`
+- NCNN 获取与编译：`docs/DEPLOYMENT.md`
 
 ## 编译
 

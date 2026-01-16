@@ -1,10 +1,37 @@
 # YOLO26 + NCNN 部署
 
-## 0. 生成物
+## 0. 环境准备
 
-- 本仓库不提交：`*.pt`、`*_ncnn_model/`、`*_ncnn_e2e_raw_model/`、`*.onnx`
-- 方案 A 导出目录：`<weights_stem>_ncnn_model/`
-- 方案 B 导出目录：`<weights_stem>_ncnn_e2e_raw_model/`
+### 0.1 获取并编译安装 NCNN（示例路径：`/data/temp40/ncnn`）
+
+```bash
+git clone https://github.com/Tencent/ncnn.git /data/temp40/ncnn
+
+cmake -S /data/temp40/ncnn -B /data/temp40/ncnn/build \
+  -DNCNN_INSTALL_SDK=ON \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=/data/temp40/ncnn/install
+
+cmake --build /data/temp40/ncnn/build -j
+cmake --install /data/temp40/ncnn/build
+```
+
+本项目 CMake 需要的路径（示例）：
+- `-Dncnn_DIR=/data/temp40/ncnn/install/lib/cmake/ncnn`
+
+Vulkan（可选）：
+- NCNN 编译选项：`-DNCNN_VULKAN=ON`
+- 运行参数：`--gpu`
+
+### 0.2 Python 导出依赖
+
+本仓库的导出脚本使用：`ultralytics`、`torch`、`pnnx`。
+
+```bash
+python3 -m pip install -U ultralytics pnnx
+```
+
+`python/export_yolo26_end2end_raw_ncnn.py` 参数 `--ultralytics` 用于指定本地 Ultralytics 代码路径（默认：`/data/temp40/ultralytics`）。
 
 ## 1. 编译
 
@@ -28,6 +55,11 @@ CMake 选项：
 - `build/yolo26_seg_demo`
 
 ## 3. 模型导出
+
+生成物：
+- 本仓库不提交：`*.pt`、`*_ncnn_model/`、`*_ncnn_e2e_raw_model/`、`*.onnx`
+- 方案 A 导出目录：`<weights_stem>_ncnn_model/`
+- 方案 B 导出目录：`<weights_stem>_ncnn_e2e_raw_model/`
 
 ### 3.1 方案 A：Ultralytics NCNN 导出（one2many）
 

@@ -53,9 +53,6 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
         return false;
     yolo26::normalize_01_inplace(in_pad);
 
-    const int pad_w = config_.input_width - lb.resized_w;
-    const int pad_h = config_.input_height - lb.resized_h;
-
     ncnn::Extractor ex = net_->create_extractor();
     int input_ret = ex.input(config_.input_name.c_str(), in_pad);
     if (input_ret != 0)
@@ -255,90 +252,126 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
     }
 
     objects.clear();
-    objects.reserve(candidates.size());
+    if (candidates.empty())
+        return true;
 
-    ncnn::Mat mask_feat = ncnn::Mat(config_.mask_dim, (int)candidates.size());
-    for (size_t i = 0; i < candidates.size(); i++)
+    const int n = (int)candidates.size();
+    ncnn::Mat mask_feat = ncnn::Mat(config_.mask_dim, n);
+    std::vector<yolo26::BoxXYXY> boxes_input;
+    boxes_input.reserve(n);
+    for (int i = 0; i < n; i++)
     {
         const Yolo26SegObject& src = candidates[i];
-        Yolo26SegObject obj = src;
+        yolo26::BoxXYXY box;
+        box.x1 = src.x1;
+        box.y1 = src.y1;
+        box.x2 = src.x2;
+        box.y2 = src.y2;
+        boxes_input.push_back(box);
+
+        float* mask_feat_ptr = mask_feat.row(i);
+        std::copy(src.mask_feat.begin(), src.mask_feat.end(), mask_feat_ptr);
+    }
+
+    // Normalize proto to CHW layout (mask_dim, mh, mw)
+    ncnn::Mat proto_chw = proto;
+    if (proto.dims == 4)
+    {
+        proto_chw = proto.reshape(proto.w, proto.h, proto.c * proto.d);
+    }
+    else if (proto.dims == 2)
+    {
+        if (proto.h != config_.mask_dim)
+            return false;
+        const int side = (int)std::round(std::sqrt((double)proto.w));
+        if (side <= 0 || side * side != proto.w)
+            return false;
+        proto_chw = proto.reshape(side, side, proto.h);
+    }
+
+    if (proto_chw.dims != 3 || proto_chw.c != config_.mask_dim)
+        return false;
+
+    const bool retina_masks = false;  // TODO: expose as config flag
+
+    if (retina_masks)
+    {
+        std::vector<yolo26::BoxXYXY> boxes_orig;
+        boxes_orig.reserve(n);
+        for (const auto& b : boxes_input)
+        {
+            float x1 = b.x1;
+            float y1 = b.y1;
+            float x2 = b.x2;
+            float y2 = b.y2;
+            yolo26::scale_xyxy_inplace(x1, y1, x2, y2, img_w, img_h, lb, true);
+            yolo26::BoxXYXY box;
+            box.x1 = x1;
+            box.y1 = y1;
+            box.x2 = x2;
+            box.y2 = y2;
+            boxes_orig.push_back(box);
+        }
+
+        std::vector<cv::Mat> masks_orig;
+        if (!yolo26::process_mask_native(proto_chw, mask_feat, boxes_orig, img_h, img_w, masks_orig))
+            return false;
+
+        objects.reserve((size_t)masks_orig.size());
+        for (int i = 0; i < n; i++)
+        {
+            if (cv::countNonZero(masks_orig[i]) <= 0)
+                continue;
+            Yolo26SegObject obj = candidates[i];
+            obj.x1 = boxes_orig[i].x1;
+            obj.y1 = boxes_orig[i].y1;
+            obj.x2 = boxes_orig[i].x2;
+            obj.y2 = boxes_orig[i].y2;
+            obj.mask = masks_orig[i];
+            objects.push_back(std::move(obj));
+        }
+        return true;
+    }
+
+    std::vector<cv::Mat> masks_input;
+    if (!yolo26::process_mask(
+            proto_chw, mask_feat, boxes_input, config_.input_height, config_.input_width, true, masks_input))
+        return false;
+
+    std::vector<int> keep;
+    keep.reserve(n);
+    std::vector<cv::Mat> masks_input_keep;
+    masks_input_keep.reserve((size_t)n);
+    for (int i = 0; i < n; i++)
+    {
+        if (cv::countNonZero(masks_input[i]) <= 0)
+            continue;
+        keep.push_back(i);
+        masks_input_keep.push_back(masks_input[i]);
+    }
+
+    std::vector<cv::Mat> masks_orig;
+    if (!yolo26::scale_masks(masks_input_keep, img_h, img_w, masks_orig, true))
+        return false;
+
+    objects.reserve(keep.size());
+    for (size_t j = 0; j < keep.size(); j++)
+    {
+        const int i = keep[j];
+        Yolo26SegObject obj = candidates[i];
 
         float x1 = obj.x1;
         float y1 = obj.y1;
         float x2 = obj.x2;
         float y2 = obj.y2;
         yolo26::scale_xyxy_inplace(x1, y1, x2, y2, img_w, img_h, lb, true);
-
         obj.x1 = x1;
         obj.y1 = y1;
         obj.x2 = x2;
         obj.y2 = y2;
 
-        float* mask_feat_ptr = mask_feat.row((int)i);
-        std::copy(src.mask_feat.begin(), src.mask_feat.end(), mask_feat_ptr);
-
-        objects.push_back(obj);
-    }
-
-    if (objects.empty())
-        return true;
-
-    ncnn::Mat mask_pred_result;
-    ncnn::Mat masks;
-    int proto_w = in_pad.w / 4;
-    int proto_h = in_pad.h / 4;
-
-    int proto_channels = proto.c;
-    if (proto.dims == 4)
-        proto_channels *= proto.d;
-    if (proto_channels != config_.mask_dim)
-        return false;
-
-    ncnn::Mat proto_flat = proto;
-    if (proto.dims == 3 || proto.dims == 4)
-    {
-        proto_w = proto.w;
-        proto_h = proto.h;
-        proto_flat = proto.reshape(proto_w * proto_h, proto_channels);
-    }
-    else if (proto.dims == 2)
-    {
-        if (proto.h != proto_channels)
-            return false;
-        if (proto_w * proto_h != proto.w)
-            return false;
-    }
-    else
-    {
-        return false;
-    }
-
-    const int proto_scale_w = proto_w > 0 ? (in_pad.w / proto_w) : 0;
-    const int proto_scale_h = proto_h > 0 ? (in_pad.h / proto_h) : 0;
-    if (proto_scale_w <= 0 || proto_scale_h <= 0 || proto_scale_w != proto_scale_h)
-        return false;
-    const int proto_scale = proto_scale_w;
-
-    yolo26_seg::matmul({mask_feat, proto_flat}, masks);
-    yolo26_seg::sigmoid(masks);
-
-    yolo26_seg::reshape(masks, masks, masks.h, proto_h, proto_w, 0);
-    yolo26_seg::slice(masks, mask_pred_result, (pad_w / 2) / proto_scale, (in_pad.w - pad_w / 2) / proto_scale, 2);
-    yolo26_seg::slice(mask_pred_result, mask_pred_result, (pad_h / 2) / proto_scale, (in_pad.h - pad_h / 2) / proto_scale, 1);
-    yolo26_seg::interp(mask_pred_result, (float)proto_scale, img_w, img_h, mask_pred_result);
-
-    for (size_t i = 0; i < objects.size(); i++)
-    {
-        objects[i].mask = cv::Mat::zeros(img_h, img_w, CV_32FC1);
-        cv::Mat mask(img_h, img_w, CV_32FC1, (float*)mask_pred_result.channel((int)i));
-        const int rx = (int)std::floor(objects[i].x1);
-        const int ry = (int)std::floor(objects[i].y1);
-        const int rw = (int)std::ceil(objects[i].x2 - objects[i].x1);
-        const int rh = (int)std::ceil(objects[i].y2 - objects[i].y1);
-        cv::Rect roi(rx, ry, rw, rh);
-        roi &= cv::Rect(0, 0, img_w, img_h);
-        if (roi.area() > 0)
-            mask(roi).copyTo(objects[i].mask(roi));
+        obj.mask = masks_orig[j];
+        objects.push_back(std::move(obj));
     }
 
     return true;

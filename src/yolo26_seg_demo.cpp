@@ -20,9 +20,10 @@ static void draw_segmentation(cv::Mat& bgr, const std::vector<Yolo26SegObject>& 
         const auto& obj = objects[i];
         cv::Scalar color = colors[obj.label % colors.size()];
 
-        cv::Mat mask_bin;
-        cv::threshold(obj.mask, mask_bin, mask_thresh, 255, cv::THRESH_BINARY);
-        mask_bin.convertTo(mask_bin, CV_8U);
+        if (obj.mask.empty() || obj.mask.type() != CV_8UC1)
+            continue;
+        (void)mask_thresh;
+        const cv::Mat& mask_bin = obj.mask;
 
         cv::Mat overlay = bgr.clone();
         overlay.setTo(color, mask_bin);

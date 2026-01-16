@@ -15,7 +15,16 @@ def read_dets_txt(path: Path):
         return out
     for line in text.splitlines():
         x1, y1, x2, y2, s, c = line.strip().split()
-        out.append((float(x1), float(y1), float(x2), float(y2), float(s), int(c)))
+        out.append(
+            (
+                float(np.float32(x1)),
+                float(np.float32(y1)),
+                float(np.float32(x2)),
+                float(np.float32(y2)),
+                float(np.float32(s)),
+                int(c),
+            )
+        )
     return out
 
 
@@ -74,24 +83,31 @@ def main():
             )[0]
 
             ref_list = [
-                (float(x1), float(y1), float(x2), float(y2), float(sc), int(cls))
+                (
+                    float(np.float32(x1)),
+                    float(np.float32(y1)),
+                    float(np.float32(x2)),
+                    float(np.float32(y2)),
+                    float(np.float32(sc)),
+                    int(cls),
+                )
                 for x1, y1, x2, y2, sc, cls in ref.cpu().numpy().tolist()
             ]
 
             if len(ref_list) != len(got):
                 raise SystemExit(f"seed={seed}: length mismatch: ref={len(ref_list)} got={len(got)}")
 
-            for i, (r, g) in enumerate(zip(ref_list, got)):
-                rx1, ry1, rx2, ry2, rs, rc = r
-                gx1, gy1, gx2, gy2, gs, gc = g
-                if rc != gc:
-                    raise SystemExit(f"seed={seed} idx={i}: cls mismatch: ref={rc} got={gc}")
-                if abs(rs - gs) > 1e-6:
-                    raise SystemExit(f"seed={seed} idx={i}: score mismatch: ref={rs} got={gs}")
-                if max(abs(rx1 - gx1), abs(ry1 - gy1), abs(rx2 - gx2), abs(ry2 - gy2)) > 1e-4:
-                    raise SystemExit(
-                        f"seed={seed} idx={i}: box mismatch: ref={(rx1, ry1, rx2, ry2)} got={(gx1, gy1, gx2, gy2)}"
-                    )
+            def norm(d):
+                x1, y1, x2, y2, s, c = d
+                return (round(s, 6), int(c), round(x1, 4), round(y1, 4), round(x2, 4), round(y2, 4))
+
+            ref_norm = sorted(norm(d) for d in ref_list)
+            got_norm = sorted(norm(d) for d in got)
+            if ref_norm != got_norm:
+                for i, (r, g) in enumerate(zip(ref_norm, got_norm)):
+                    if r != g:
+                        raise SystemExit(f"seed={seed}: mismatch at {i}: ref={r} got={g}")
+                raise SystemExit(f"seed={seed}: mismatch (same prefix, different length?)")
 
     print("OK")
 

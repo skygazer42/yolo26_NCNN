@@ -2,7 +2,23 @@
 
 ## 0. 环境准备
 
-### 0.1 获取并编译安装 NCNN（示例路径：`/data/temp40/ncnn`）
+### 0.1 使用预编译 NCNN SDK（不编译）
+
+预编译 SDK 目录结构包含：
+- `include/`
+- `lib/`
+- `lib/cmake/ncnn/ncnnConfig.cmake`
+
+解压示例（SDK 根目录为 `/data/temp40/ncnn-sdk`）：
+```bash
+mkdir -p /data/temp40/ncnn-sdk
+tar -xf ncnn-sdk.tgz -C /data/temp40/ncnn-sdk
+```
+
+本项目 CMake 需要的路径（示例）：
+- `-Dncnn_DIR=/data/temp40/ncnn-sdk/lib/cmake/ncnn`
+
+### 0.2 获取并编译安装 NCNN（示例路径：`/data/temp40/ncnn`）
 
 ```bash
 git clone https://github.com/Tencent/ncnn.git /data/temp40/ncnn
@@ -23,7 +39,7 @@ Vulkan（可选）：
 - NCNN 编译选项：`-DNCNN_VULKAN=ON`
 - 运行参数：`--gpu`
 
-### 0.2 Python 导出依赖
+### 0.3 Python 导出依赖
 
 本仓库的导出脚本使用：`ultralytics`、`torch`、`pnnx`。
 

@@ -18,6 +18,10 @@ cmake -S . -B build -Dncnn_DIR=/data/temp40/ncnn/install/lib/cmake/ncnn
 cmake --build build -j
 ```
 
+CMake 选项：
+- `-DYOLO26_BUILD_SEG=ON|OFF`
+- `-DYOLO26_BUILD_TOOLS=ON|OFF`
+
 ## 2. 可执行文件
 
 - `build/yolo26_det`
@@ -102,7 +106,7 @@ python python/export_yolo26_end2end_raw_ncnn.py --weights yolo26n-seg.pt --imgsz
 - `--conf 0.25 --iou 0.45 --max-det 300 --post auto --box cxcywh`
 
 `yolo26_seg_demo` 默认值：
-- `--conf 0.5 --iou 0.45 --max-det 300 --post auto --box cxcywh`
+- `--conf 0.25 --iou 0.45 --max-det 300 --post auto --box cxcywh`
 
 通用参数：
 - `--conf --iou --max-det --post <auto|nms|topk> --box <cxcywh|xyxy> --agnostic --gpu`
@@ -130,3 +134,5 @@ blob 名称：
 ```bash
 python tools/run_parity.py --build-dir build
 ```
+
+依赖：`build/yolo26_topk_parity`、`build/yolo26_nms_parity`、`build/yolo26_mask_parity`

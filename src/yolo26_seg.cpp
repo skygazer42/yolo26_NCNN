@@ -16,6 +16,20 @@
 #include "yolo26_mask.h"
 #include "yolo26_nms.h"
 
+namespace {
+
+struct Yolo26SegCandidate {
+    float x1 = 0.f;
+    float y1 = 0.f;
+    float x2 = 0.f;
+    float y2 = 0.f;
+    int label = -1;
+    float prob = 0.f;
+    std::vector<float> mask_feat;
+};
+
+}  // namespace
+
 Yolo26Seg::Yolo26Seg(const Yolo26SegConfig& config)
     : config_(config), net_(std::make_shared<ncnn::Net>())
 {
@@ -78,7 +92,7 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
     if (!yolo26::to_mat2d(out, out_2d))
         return false;
 
-    std::vector<Yolo26SegObject> candidates;
+    std::vector<Yolo26SegCandidate> candidates;
 
     const int det_dim = 4 + config_.num_classes;
     const int det_mask_dim = det_dim + config_.mask_dim;
@@ -125,7 +139,7 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
                 const float p2 = box_p2[i];
                 const float p3 = box_p3[i];
 
-                Yolo26SegObject obj;
+                Yolo26SegCandidate obj;
                 if (config_.box_format == Yolo26BoxFormat::CXCYWH)
                 {
                     obj.x1 = p0 - p2 * 0.5f;
@@ -173,7 +187,7 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
                 const float p2 = box_p2[i];
                 const float p3 = box_p3[i];
 
-                Yolo26SegObject obj;
+                Yolo26SegCandidate obj;
                 if (config_.box_format == Yolo26BoxFormat::CXCYWH)
                 {
                     obj.x1 = p0 - p2 * 0.5f;
@@ -220,7 +234,7 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
                 const float p2 = p[2];
                 const float p3 = p[3];
 
-                Yolo26SegObject obj;
+                Yolo26SegCandidate obj;
                 if (config_.box_format == Yolo26BoxFormat::CXCYWH)
                 {
                     obj.x1 = p0 - p2 * 0.5f;
@@ -270,7 +284,7 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
                 const float p2 = p[2];
                 const float p3 = p[3];
 
-                Yolo26SegObject obj;
+                Yolo26SegCandidate obj;
                 if (config_.box_format == Yolo26BoxFormat::CXCYWH)
                 {
                     obj.x1 = p0 - p2 * 0.5f;
@@ -307,7 +321,7 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
             if (score < config_.conf_threshold)
                 continue;
 
-            Yolo26SegObject obj;
+            Yolo26SegCandidate obj;
             obj.x1 = p[0];
             obj.y1 = p[1];
             obj.x2 = p[2];
@@ -344,7 +358,7 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
             if (score < config_.conf_threshold)
                 continue;
 
-            Yolo26SegObject obj;
+            Yolo26SegCandidate obj;
             obj.x1 = x1_row[i];
             obj.y1 = y1_row[i];
             obj.x2 = x2_row[i];
@@ -389,7 +403,7 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
     boxes_input.reserve(n);
     for (int i = 0; i < n; i++)
     {
-        const Yolo26SegObject& src = candidates[i];
+        const Yolo26SegCandidate& src = candidates[i];
         yolo26::BoxXYXY box;
         box.x1 = src.x1;
         box.y1 = src.y1;
@@ -450,11 +464,13 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
         {
             if (cv::countNonZero(masks_orig[i]) <= 0)
                 continue;
-            Yolo26SegObject obj = candidates[i];
+            Yolo26SegObject obj;
             obj.x1 = boxes_orig[i].x1;
             obj.y1 = boxes_orig[i].y1;
             obj.x2 = boxes_orig[i].x2;
             obj.y2 = boxes_orig[i].y2;
+            obj.label = candidates[i].label;
+            obj.prob = candidates[i].prob;
             obj.mask = masks_orig[i];
             objects.push_back(std::move(obj));
         }
@@ -486,7 +502,13 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
     for (size_t j = 0; j < keep.size(); j++)
     {
         const int i = keep[j];
-        Yolo26SegObject obj = candidates[i];
+        Yolo26SegObject obj;
+        obj.x1 = candidates[i].x1;
+        obj.y1 = candidates[i].y1;
+        obj.x2 = candidates[i].x2;
+        obj.y2 = candidates[i].y2;
+        obj.label = candidates[i].label;
+        obj.prob = candidates[i].prob;
 
         float x1 = obj.x1;
         float y1 = obj.y1;

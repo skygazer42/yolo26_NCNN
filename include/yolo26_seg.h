@@ -20,7 +20,6 @@ struct Yolo26SegObject {
     int label = -1;
     float prob = 0.f;
     cv::Mat mask;
-    std::vector<float> mask_feat;
 };
 
 struct Yolo26SegConfig {

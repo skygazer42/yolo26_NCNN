@@ -23,11 +23,13 @@ struct Yolo26Config {
     int input_width = 640;
     int input_height = 640;
     int num_classes = 80;
-    float conf_threshold = 0.5f;
+    float conf_threshold = 0.25f;
+    float iou_threshold = 0.45f;
     int max_det = 300;
     int padding_value = 114;
     bool scaleup = true;
     bool center = true;
+    bool agnostic_nms = false;
     bool use_gpu = false;
     std::string input_name = "in0";
     std::string output_name = "out0";

@@ -12,6 +12,7 @@
 #include "yolo26_ops.h"
 #include "yolo26_ncnn_mat.h"
 #include "yolo26_topk.h"
+#include "yolo26_nms.h"
 
 Yolo26::Yolo26(const Yolo26Config& config)
     : config_(config), net_(std::make_shared<ncnn::Net>())
@@ -247,6 +248,9 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
         obj.x2 = x2;
         obj.y2 = y2;
     }
+
+    // Apply NMS to remove duplicate detections
+    objects = yolo26::nms(objects, config_.iou_threshold, config_.agnostic_nms);
 
     return true;
 }

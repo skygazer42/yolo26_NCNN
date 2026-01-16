@@ -4,6 +4,7 @@ build_*/
 build_test/
 .idea/
 .vscode/
+runs/
 *.o
 *.obj
 *.so
@@ -17,6 +18,14 @@ __pycache__/
 
 # Weights / exported models (generated artifacts)
 *.pt
+*.ncnn.param
+*.ncnn.bin
+*.pnnx.param
+*.pnnx.bin
+*.pnnx.onnx
 *_ncnn_model/
 *_ncnn_e2e_raw_model/
 *.onnx
+
+# Output images (generated)
+*_result.jpg

@@ -26,9 +26,10 @@ static void print_usage(const char* prog)
                  prog);
 }
 
-static void draw_segmentation(cv::Mat& bgr, const std::vector<Yolo26SegObject>& objects, float mask_thresh)
+static void draw_segmentation(cv::Mat& bgr, const std::vector<Yolo26SegObject>& objects)
 {
     const auto& colors = yolo26_coco_colors();
+    cv::Mat blended;
 
     for (size_t i = 0; i < objects.size(); i++)
     {
@@ -37,14 +38,10 @@ static void draw_segmentation(cv::Mat& bgr, const std::vector<Yolo26SegObject>& 
 
         if (obj.mask.empty() || obj.mask.type() != CV_8UC1)
             continue;
-        (void)mask_thresh;
         const cv::Mat& mask_bin = obj.mask;
 
-        cv::Mat overlay = bgr.clone();
-        overlay.setTo(color, mask_bin);
-
-        cv::Mat blended;
-        cv::addWeighted(overlay, 0.5, bgr, 0.5, 0, blended);
+        cv::Mat color_img(bgr.size(), bgr.type(), color);
+        cv::addWeighted(color_img, 0.5, bgr, 0.5, 0, blended);
         blended.copyTo(bgr, mask_bin);
     }
 }
@@ -109,7 +106,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    draw_segmentation(bgr, objects, detector.config().mask_threshold);
+    draw_segmentation(bgr, objects);
     std::vector<Yolo26Object> det_objects;
     det_objects.reserve(objects.size());
     for (const auto& obj : objects)

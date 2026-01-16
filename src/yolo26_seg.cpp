@@ -8,11 +8,11 @@
 #include "net.h"
 #include "cpu.h"
 
-#include "yolo26_seg_postprocess.h"
 #include "yolo26_preprocess.h"
 #include "yolo26_ops.h"
 #include "yolo26_ncnn_mat.h"
 #include "yolo26_topk.h"
+#include "yolo26_mask.h"
 
 Yolo26Seg::Yolo26Seg(const Yolo26SegConfig& config)
     : config_(config), net_(std::make_shared<ncnn::Net>())

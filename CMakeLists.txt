@@ -32,20 +32,10 @@ add_executable(yolo26_det src/yolo26_det.cpp)
 target_link_libraries(yolo26_det yolo26)
 
 if(YOLO26_BUILD_SEG)
-    add_library(yolo26_seg
-        src/yolo26_seg.cpp
-    )
-    target_include_directories(yolo26_seg
-        PUBLIC
-            ${CMAKE_CURRENT_SOURCE_DIR}/include
-    )
-    target_link_libraries(yolo26_seg
-        PUBLIC
-            yolo26
-    )
+    target_sources(yolo26 PRIVATE src/yolo26_seg.cpp)
 
     add_executable(yolo26_seg_demo src/yolo26_seg_demo.cpp)
-    target_link_libraries(yolo26_seg_demo yolo26_seg)
+    target_link_libraries(yolo26_seg_demo yolo26)
 endif()
 
 if(YOLO26_BUILD_TOOLS)

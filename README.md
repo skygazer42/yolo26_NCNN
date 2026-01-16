@@ -63,7 +63,7 @@ Run:
 Ultralytics disables end2end `torch.topk` for NCNN export. These scripts keep the one2one head but remove TopK from the graph, so you can run TopK in C++:
 
 ```bash
-python python/export_yolo26_det_end2end_raw_ncnn.py --weights yolo26n.pt --imgsz 640
+python python/export_yolo26_end2end_raw_ncnn.py --weights yolo26n.pt --imgsz 640
 ```
 
 Run:
@@ -90,7 +90,7 @@ Run:
 #### Mode B: end2end(one2one) RAW export for NCNN (NMS-free)
 
 ```bash
-python python/export_yolo26_seg_end2end_raw_ncnn.py --weights yolo26n-seg.pt --imgsz 640
+python python/export_yolo26_end2end_raw_ncnn.py --weights yolo26n-seg.pt --imgsz 640
 ```
 
 Run:

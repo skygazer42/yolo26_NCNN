@@ -10,6 +10,7 @@
 
 #include "yolo26_preprocess.h"
 #include "yolo26_ops.h"
+#include "yolo26_ncnn_io.h"
 #include "yolo26_ncnn_mat.h"
 #include "yolo26_topk.h"
 #include "yolo26_nms.h"
@@ -61,28 +62,11 @@ bool Yolo26::detect(const cv::Mat& bgr, std::vector<Yolo26Object>& objects) cons
     yolo26::normalize_01_inplace(in_pad);
 
     ncnn::Extractor ex = net_->create_extractor();
-    int input_ret = ex.input(config_.input_name.c_str(), in_pad);
-    if (input_ret != 0)
-    {
-        if (config_.input_name != "in0")
-            input_ret = ex.input("in0", in_pad);
-        if (config_.input_name != "images")
-            input_ret = ex.input("images", in_pad);
-        if (input_ret != 0 && config_.input_name != "data")
-            input_ret = ex.input("data", in_pad);
-        if (input_ret != 0)
-            return false;
-    }
+    if (!yolo26::ncnn_input_image(ex, config_.input_name, in_pad))
+        return false;
 
     ncnn::Mat out;
-    int out_ret = ex.extract(config_.output_name.c_str(), out);
-    if (out_ret != 0 && config_.output_name != "out0")
-        out_ret = ex.extract("out0", out);
-    if (out_ret != 0 && config_.output_name != "output0")
-        out_ret = ex.extract("output0", out);
-    if (out_ret != 0 && config_.output_name != "output")
-        out_ret = ex.extract("output", out);
-    if (out_ret != 0)
+    if (!yolo26::ncnn_extract_out0(ex, config_.output_name, out))
         return false;
 
     ncnn::Mat out_2d;

@@ -76,12 +76,12 @@ PY
 
 Detection：
 ```bash
-python python/export_yolo26_det_end2end_raw_ncnn.py --weights yolo26n.pt --imgsz 640
+python python/export_yolo26_end2end_raw_ncnn.py --weights yolo26n.pt --imgsz 640
 ```
 
 Segmentation：
 ```bash
-python python/export_yolo26_seg_end2end_raw_ncnn.py --weights yolo26n-seg.pt --imgsz 640
+python python/export_yolo26_end2end_raw_ncnn.py --weights yolo26n-seg.pt --imgsz 640
 ```
 
 会生成 `*_ncnn_e2e_raw_model/`。

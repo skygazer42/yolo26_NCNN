@@ -2,7 +2,6 @@ import argparse
 import sys
 from pathlib import Path
 from types import MethodType
-
 import torch
 
 

@@ -52,6 +52,9 @@ cmake --build build -j
 
 ## 3. 导出模型
 
+说明：
+- 本仓库不提交权重（`*.pt`）与导出模型（`*_ncnn_model/`、`*_ncnn_e2e_raw_model/`），请按下方命令在本地生成。
+
 ### 3.1 方案 A：官方 Ultralytics NCNN 导出
 
 Detection：

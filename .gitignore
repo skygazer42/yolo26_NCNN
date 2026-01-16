@@ -14,3 +14,9 @@ build_test/
 *.log
 __pycache__/
 *.pyc
+
+# Weights / exported models (generated artifacts)
+*.pt
+*_ncnn_model/
+*_ncnn_e2e_raw_model/
+*.onnx

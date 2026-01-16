@@ -40,6 +40,9 @@ Python export prerequisites:
 - `ultralytics` (YOLO26 support) + `torch`
 - `pnnx` Python module (comes with NCNN builds)
 
+Note:
+- This repo does **not** commit weights (`*.pt`) or exported models (`*_ncnn_model/`, `*_ncnn_e2e_raw_model/`). Generate them locally using the commands below.
+
 The end2end RAW export scripts will prefer a local Ultralytics checkout at `/data/temp40/ultralytics` (for strict alignment) if it exists.
 
 ### Detection

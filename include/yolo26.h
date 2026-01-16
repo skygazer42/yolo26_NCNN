@@ -11,7 +11,10 @@ class Net;
 }
 
 struct Yolo26Object {
-    cv::Rect_<float> rect;
+    float x1 = 0.f;
+    float y1 = 0.f;
+    float x2 = 0.f;
+    float y2 = 0.f;
     int label = -1;
     float prob = 0.f;
 };

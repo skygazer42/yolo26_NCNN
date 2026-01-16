@@ -9,6 +9,9 @@
 #include "cpu.h"
 
 #include "yolo26_seg_postprocess.h"
+#include "yolo26_preprocess.h"
+#include "yolo26_ops.h"
+#include "yolo26_topk.h"
 
 Yolo26Seg::Yolo26Seg(const Yolo26SegConfig& config)
     : config_(config), net_(std::make_shared<ncnn::Net>())
@@ -43,24 +46,14 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
     const int img_w = bgr.cols;
     const int img_h = bgr.rows;
 
-    float scale = std::min(config_.input_width / (float)img_w, config_.input_height / (float)img_h);
-    int resized_w = std::max(1, (int)std::round(img_w * scale));
-    int resized_h = std::max(1, (int)std::round(img_h * scale));
-
-    ncnn::Mat in = ncnn::Mat::from_pixels_resize(
-        bgr.data, ncnn::Mat::PIXEL_BGR2RGB, img_w, img_h, resized_w, resized_h);
-
-    int pad_w = config_.input_width - resized_w;
-    int pad_h = config_.input_height - resized_h;
-
+    yolo26::LetterBoxInfo lb;
     ncnn::Mat in_pad;
-    ncnn::copy_make_border(in, in_pad,
-                           pad_h / 2, pad_h - pad_h / 2,
-                           pad_w / 2, pad_w - pad_w / 2,
-                           ncnn::BORDER_CONSTANT, 0.f);
+    if (!yolo26::letterbox(bgr, config_.input_width, config_.input_height, 114, true, true, in_pad, lb))
+        return false;
+    yolo26::normalize_01_inplace(in_pad);
 
-    const float norm_vals[3] = {1 / 255.f, 1 / 255.f, 1 / 255.f};
-    in_pad.substract_mean_normalize(0, norm_vals);
+    const int pad_w = config_.input_width - lb.resized_w;
+    const int pad_h = config_.input_height - lb.resized_h;
 
     ncnn::Extractor ex = net_->create_extractor();
     int input_ret = ex.input(config_.input_name.c_str(), in_pad);
@@ -112,7 +105,6 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
     if (out_2d.h == det_mask_dim && out_2d.w > 0)
     {
         const int num_anchors = out_2d.w;
-        const int k = std::max(1, std::min(config_.max_det, num_anchors));
 
         const float* box_cx = out_2d.row(0);
         const float* box_cy = out_2d.row(1);
@@ -127,50 +119,9 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
         for (int m = 0; m < config_.mask_dim; m++)
             mask_rows[m] = out_2d.row(4 + config_.num_classes + m);
 
-        struct AnchorScore {
-            float score;
-            int index;
-        };
-        std::vector<AnchorScore> anchor_scores;
-        anchor_scores.reserve(num_anchors);
-        for (int i = 0; i < num_anchors; i++)
-        {
-            float best = score_rows[0][i];
-            for (int c = 1; c < config_.num_classes; c++)
-                best = std::max(best, score_rows[c][i]);
-            anchor_scores.push_back({best, i});
-        }
-
-        if (k < (int)anchor_scores.size())
-        {
-            std::nth_element(anchor_scores.begin(), anchor_scores.begin() + k, anchor_scores.end(),
-                             [](const AnchorScore& a, const AnchorScore& b) { return a.score > b.score; });
-            anchor_scores.resize(k);
-        }
-        std::sort(anchor_scores.begin(), anchor_scores.end(),
-                  [](const AnchorScore& a, const AnchorScore& b) { return a.score > b.score; });
-
-        struct Candidate {
-            float score;
-            int anchor;
-            int cls;
-        };
-        std::vector<Candidate> topk;
-        topk.reserve(anchor_scores.size() * (size_t)config_.num_classes);
-        for (const auto& a : anchor_scores)
-        {
-            for (int c = 0; c < config_.num_classes; c++)
-                topk.push_back({score_rows[c][a.index], a.index, c});
-        }
-
-        if (k < (int)topk.size())
-        {
-            std::nth_element(topk.begin(), topk.begin() + k, topk.end(),
-                             [](const Candidate& a, const Candidate& b) { return a.score > b.score; });
-            topk.resize(k);
-        }
-        std::sort(topk.begin(), topk.end(),
-                  [](const Candidate& a, const Candidate& b) { return a.score > b.score; });
+        const auto topk = yolo26::get_topk_index(
+            num_anchors, config_.num_classes, config_.max_det,
+            [&](int anchor, int cls) { return score_rows[cls][anchor]; });
 
         candidates.reserve(topk.size());
         for (const auto& cand : topk)
@@ -202,54 +153,9 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
     else if (out_2d.w == det_mask_dim && out_2d.h > 0)
     {
         const int num_anchors = out_2d.h;
-        const int k = std::max(1, std::min(config_.max_det, num_anchors));
-
-        struct AnchorScore {
-            float score;
-            int index;
-        };
-        std::vector<AnchorScore> anchor_scores;
-        anchor_scores.reserve(num_anchors);
-        for (int i = 0; i < num_anchors; i++)
-        {
-            const float* p = out_2d.row(i);
-            float best = p[4];
-            for (int c = 1; c < config_.num_classes; c++)
-                best = std::max(best, p[4 + c]);
-            anchor_scores.push_back({best, i});
-        }
-
-        if (k < (int)anchor_scores.size())
-        {
-            std::nth_element(anchor_scores.begin(), anchor_scores.begin() + k, anchor_scores.end(),
-                             [](const AnchorScore& a, const AnchorScore& b) { return a.score > b.score; });
-            anchor_scores.resize(k);
-        }
-        std::sort(anchor_scores.begin(), anchor_scores.end(),
-                  [](const AnchorScore& a, const AnchorScore& b) { return a.score > b.score; });
-
-        struct Candidate {
-            float score;
-            int anchor;
-            int cls;
-        };
-        std::vector<Candidate> topk;
-        topk.reserve(anchor_scores.size() * (size_t)config_.num_classes);
-        for (const auto& a : anchor_scores)
-        {
-            const float* p = out_2d.row(a.index);
-            for (int c = 0; c < config_.num_classes; c++)
-                topk.push_back({p[4 + c], a.index, c});
-        }
-
-        if (k < (int)topk.size())
-        {
-            std::nth_element(topk.begin(), topk.begin() + k, topk.end(),
-                             [](const Candidate& a, const Candidate& b) { return a.score > b.score; });
-            topk.resize(k);
-        }
-        std::sort(topk.begin(), topk.end(),
-                  [](const Candidate& a, const Candidate& b) { return a.score > b.score; });
+        const auto topk = yolo26::get_topk_index(
+            num_anchors, config_.num_classes, config_.max_det,
+            [&](int anchor, int cls) { return out_2d.row(anchor)[4 + cls]; });
 
         candidates.reserve(topk.size());
         for (const auto& cand : topk)
@@ -316,20 +222,16 @@ bool Yolo26Seg::detect(const cv::Mat& bgr, std::vector<Yolo26SegObject>& objects
         const Yolo26SegObject& src = candidates[i];
         Yolo26SegObject obj = src;
 
-        float x0 = (obj.rect.x - pad_w / 2.f) / scale;
-        float y0 = (obj.rect.y - pad_h / 2.f) / scale;
-        float x1 = (obj.rect.x + obj.rect.width - pad_w / 2.f) / scale;
-        float y1 = (obj.rect.y + obj.rect.height - pad_h / 2.f) / scale;
+        float x1 = obj.rect.x;
+        float y1 = obj.rect.y;
+        float x2 = obj.rect.x + obj.rect.width;
+        float y2 = obj.rect.y + obj.rect.height;
+        yolo26::scale_xyxy_inplace(x1, y1, x2, y2, img_w, img_h, lb, true);
 
-        x0 = std::max(std::min(x0, (float)(img_w - 1)), 0.f);
-        y0 = std::max(std::min(y0, (float)(img_h - 1)), 0.f);
-        x1 = std::max(std::min(x1, (float)(img_w - 1)), 0.f);
-        y1 = std::max(std::min(y1, (float)(img_h - 1)), 0.f);
-
-        obj.rect.x = x0;
-        obj.rect.y = y0;
-        obj.rect.width = x1 - x0;
-        obj.rect.height = y1 - y0;
+        obj.rect.x = x1;
+        obj.rect.y = y1;
+        obj.rect.width = x2 - x1;
+        obj.rect.height = y2 - y1;
 
         float* mask_feat_ptr = mask_feat.row((int)i);
         std::copy(src.mask_feat.begin(), src.mask_feat.end(), mask_feat_ptr);

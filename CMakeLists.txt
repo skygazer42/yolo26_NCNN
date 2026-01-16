@@ -13,6 +13,7 @@ find_package(OpenCV REQUIRED)
 add_library(yolo26
     src/yolo26.cpp
     src/yolo26_draw.cpp
+    src/yolo26_preprocess.cpp
 )
 
 target_include_directories(yolo26

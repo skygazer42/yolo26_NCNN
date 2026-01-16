@@ -53,7 +53,8 @@ void yolo26_draw_objects(cv::Mat& bgr, const std::vector<Yolo26Object>& objects,
         if (label < 0)
             label = 0;
         cv::Scalar color = colors[label % colors.size()];
-        cv::rectangle(bgr, obj.rect, color, 2);
+        cv::Rect_<float> rect(cv::Point2f(obj.x1, obj.y1), cv::Point2f(obj.x2, obj.y2));
+        cv::rectangle(bgr, rect, color, 2);
 
         std::string label_text;
         if (obj.label >= 0 && obj.label < (int)names.size())
@@ -64,8 +65,8 @@ void yolo26_draw_objects(cv::Mat& bgr, const std::vector<Yolo26Object>& objects,
         int base_line = 0;
         cv::Size label_size = cv::getTextSize(label_text, cv::FONT_HERSHEY_SIMPLEX, font_scale, 1, &base_line);
 
-        float x = obj.rect.x;
-        float y = obj.rect.y - label_size.height - base_line;
+        float x = obj.x1;
+        float y = obj.y1 - label_size.height - base_line;
         if (y < 0)
             y = 0;
         if (x + label_size.width > bgr.cols)

@@ -1,5 +1,6 @@
 import argparse
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -16,12 +17,13 @@ def main():
     nms_bin = build_dir / "yolo26_nms_parity"
     mask_bin = build_dir / "yolo26_mask_parity"
 
+    py = sys.executable or "python"
     subprocess.check_call(
-        ["python", str(root / "tools/test_topk_parity.py"), "--bin", str(topk_bin), "--seeds", *map(str, args.seeds)]
+        [py, str(root / "tools/test_topk_parity.py"), "--bin", str(topk_bin), "--seeds", *map(str, args.seeds)]
     )
     subprocess.check_call(
         [
-            "python",
+            py,
             str(root / "tools/test_nms_parity.py"),
             "--bin",
             str(nms_bin),
@@ -32,7 +34,7 @@ def main():
         ]
     )
     subprocess.check_call(
-        ["python", str(root / "tools/test_mask_parity.py"), "--bin", str(mask_bin), "--seeds", *map(str, args.seeds)]
+        [py, str(root / "tools/test_mask_parity.py"), "--bin", str(mask_bin), "--seeds", *map(str, args.seeds)]
     )
 
 

@@ -14,7 +14,7 @@ static void print_usage(const char* prog)
                  "\n"
                  "Options:\n"
                  "  --conf <float>           Confidence threshold\n"
-                 "  --iou <float>            IoU threshold (NMS)\n"
+                 "  --iou <float>            IoU threshold (NMS/dedup)\n"
                  "  --max-det <int>          Max detections\n"
                  "  --post <auto|nms|topk>    Postprocess mode\n"
                  "  --box <cxcywh|xyxy>       Box format for raw outputs\n"
